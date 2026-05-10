@@ -170,10 +170,28 @@ export async function POST() {
     await supabase.from("digest_links").insert(digestLinkRows);
   }
 
+  // Build structured articles for inline reading
+  const articles = [];
+  for (const topic of topicOrder) {
+    if (!grouped[topic]) continue;
+    for (const link of grouped[topic]) {
+      articles.push({
+        id: link.id,
+        title: link.title || "Untitled",
+        description: link.description || "",
+        url: link.url,
+        topic: TOPIC_DISPLAY_NAMES[topic] || topic,
+        topicKey: topic,
+        content: link.content || null,
+      });
+    }
+  }
+
   return Response.json({
     digest: {
       id: digest.id,
       markdown,
+      articles,
       total_links: links.length,
       included_links: includedLinks.length,
       filtered_links: filteredCount,

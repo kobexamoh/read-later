@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { enrichLink } from "@/lib/gemini";
+import { Readability } from "@mozilla/readability";
+import { parseHTML } from "linkedom";
 
 export async function POST() {
   const supabase = await createClient();
@@ -33,8 +35,8 @@ export async function POST() {
 
   for (const link of pendingLinks) {
     try {
-      // Fetch the page to get title and snippet
-      const { title, snippet } = await fetchPageContent(link.url);
+      // Fetch the page and extract article content
+      const { title, snippet, content } = await fetchPageContent(link.url);
 
       // Call Gemini for description + topics
       const { description, topics } = await enrichLink(
@@ -50,6 +52,7 @@ export async function POST() {
           title: title || link.title || link.url,
           description,
           topics,
+          content: content || null,
           status: "enriched",
         })
         .eq("id", link.id);
@@ -75,13 +78,13 @@ export async function POST() {
 }
 
 /**
- * Fetch a page and extract its title + first ~500 chars of text content.
- * Handles timeouts and failures gracefully.
+ * Fetch a page and extract title, snippet, and full article content.
+ * Uses Mozilla Readability for clean article extraction.
  */
 async function fetchPageContent(url) {
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
+    const timeout = setTimeout(() => controller.abort(), 10000);
 
     const res = await fetch(url, {
       signal: controller.signal,
@@ -94,26 +97,37 @@ async function fetchPageContent(url) {
     clearTimeout(timeout);
 
     if (!res.ok) {
-      return { title: null, snippet: null };
+      return { title: null, snippet: null, content: null };
     }
 
     const html = await res.text();
 
-    // Extract title
-    const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-    const title = titleMatch ? titleMatch[1].trim() : null;
+    // Use Readability to extract the article
+    const { document } = parseHTML(html);
+    const reader = new Readability(document);
+    const article = reader.parse();
 
-    // Extract text snippet: strip tags, grab first 500 chars
-    const textContent = html
-      .replace(/<script[\s\S]*?<\/script>/gi, "")
-      .replace(/<style[\s\S]*?<\/style>/gi, "")
-      .replace(/<[^>]+>/g, " ")
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, 500);
+    const title = article?.title || extractTitle(html);
+    const content = article?.textContent?.trim() || null;
+    const snippet = content ? content.slice(0, 500) : extractSnippet(html);
 
-    return { title, snippet: textContent };
+    return { title, snippet, content };
   } catch {
-    return { title: null, snippet: null };
+    return { title: null, snippet: null, content: null };
   }
+}
+
+function extractTitle(html) {
+  const match = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+  return match ? match[1].trim() : null;
+}
+
+function extractSnippet(html) {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 500);
 }

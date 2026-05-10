@@ -31,6 +31,7 @@ CREATE TABLE links (
   topics TEXT[] DEFAULT '{}',
   status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'enriched', 'failed')),
   source TEXT DEFAULT 'paste',
+  content TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

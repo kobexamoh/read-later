@@ -2,13 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
-import Markdown from "react-markdown";
 
 export default function DigestPage() {
   const [generating, setGenerating] = useState(false);
   const [enriching, setEnriching] = useState(false);
   const [currentDigest, setCurrentDigest] = useState(null);
   const [pastDigests, setPastDigests] = useState([]);
+  const [expandedArticle, setExpandedArticle] = useState(null);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState(null);
   const [status, setStatus] = useState(null);
@@ -69,6 +69,7 @@ export default function DigestPage() {
         setError(digestData.error);
       } else if (digestData.digest) {
         setCurrentDigest(digestData.digest);
+        setExpandedArticle(null);
         setStatus(
           (prev) =>
             `${prev ? prev + " " : ""}Digest generated: ${digestData.digest.included_links} link${digestData.digest.included_links === 1 ? "" : "s"} included.`
@@ -93,7 +94,27 @@ export default function DigestPage() {
 
   function selectDigest(digest) {
     setCurrentDigest(digest);
+    setExpandedArticle(null);
   }
+
+  function toggleArticle(articleId) {
+    setExpandedArticle((prev) => (prev === articleId ? null : articleId));
+  }
+
+  // Group articles by topic for the structured view
+  const groupedArticles = {};
+  if (currentDigest?.articles) {
+    for (const article of currentDigest.articles) {
+      const topic = article.topic;
+      if (!groupedArticles[topic]) {
+        groupedArticles[topic] = [];
+      }
+      groupedArticles[topic].push(article);
+    }
+  }
+
+  const hasArticles =
+    currentDigest?.articles && currentDigest.articles.length > 0;
 
   return (
     <div className="space-y-6">
@@ -110,7 +131,7 @@ export default function DigestPage() {
         <button
           onClick={handleEnrichAndGenerate}
           disabled={enriching || generating}
-          className="shrink-0 h-10 px-5 rounded-lg bg-stone-900 text-stone-50 text-sm font-medium hover:bg-stone-800 transition-colors disabled:opacity-50 dark:bg-stone-100 dark:text-stone-900 dark:hover:bg-stone-200"
+          className="cursor-pointer shrink-0 h-10 px-5 rounded-lg bg-stone-900 text-stone-50 text-sm font-medium hover:bg-stone-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed dark:bg-stone-100 dark:text-stone-900 dark:hover:bg-stone-200"
         >
           {enriching
             ? "Enriching..."
@@ -127,8 +148,8 @@ export default function DigestPage() {
         <p className="text-sm text-stone-500 dark:text-stone-400">{status}</p>
       )}
 
-      {/* Current digest */}
-      {currentDigest?.markdown && (
+      {/* Digest view */}
+      {currentDigest && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3 text-xs text-stone-400">
@@ -137,23 +158,90 @@ export default function DigestPage() {
                 {currentDigest.included_links === 1 ? "" : "s"}
               </span>
               {currentDigest.filtered_links > 0 && (
-                <span>
-                  {currentDigest.filtered_links} filtered
-                </span>
+                <span>{currentDigest.filtered_links} filtered</span>
               )}
               <span className="capitalize">{currentDigest.mode} mode</span>
             </div>
             <button
               onClick={handleCopy}
-              className="text-xs text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 transition-colors"
+              className="cursor-pointer text-xs text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 transition-colors"
             >
               {copied ? "Copied" : "Copy markdown"}
             </button>
           </div>
 
-          <article className="prose prose-stone dark:prose-invert prose-sm max-w-none px-6 py-5 rounded-lg border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900">
-            <Markdown>{currentDigest.markdown}</Markdown>
-          </article>
+          {/* Structured article view (for freshly generated digests with articles) */}
+          {hasArticles ? (
+            <div className="space-y-6">
+              {Object.entries(groupedArticles).map(([topic, articles]) => (
+                <section key={topic}>
+                  <h2 className="text-sm font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wide mb-3">
+                    {topic}
+                  </h2>
+                  <ul className="space-y-2">
+                    {articles.map((article) => (
+                      <li
+                        key={article.id}
+                        className="rounded-lg border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900 overflow-hidden"
+                      >
+                        {/* Article header — always visible */}
+                        <button
+                          onClick={() => toggleArticle(article.id)}
+                          className="cursor-pointer w-full text-left px-5 py-4 hover:bg-stone-50 dark:hover:bg-stone-800/50 transition-colors"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium leading-snug">
+                                {article.title}
+                              </p>
+                              {article.description && (
+                                <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 leading-relaxed">
+                                  {article.description}
+                                </p>
+                              )}
+                            </div>
+                            <span className="shrink-0 text-stone-300 dark:text-stone-600 text-xs mt-0.5">
+                              {expandedArticle === article.id ? "▲" : "▼"}
+                            </span>
+                          </div>
+                        </button>
+
+                        {/* Expanded article content */}
+                        {expandedArticle === article.id && (
+                          <div className="border-t border-stone-200 dark:border-stone-800">
+                            {article.content ? (
+                              <div className="px-5 py-5 text-sm leading-relaxed text-stone-700 dark:text-stone-300 max-h-[70vh] overflow-y-auto whitespace-pre-line">
+                                {article.content}
+                              </div>
+                            ) : (
+                              <div className="px-5 py-4 text-sm text-stone-400">
+                                Article content couldn&apos;t be extracted.
+                              </div>
+                            )}
+                            <div className="px-5 py-3 border-t border-stone-100 dark:border-stone-800 bg-stone-50 dark:bg-stone-900">
+                              <a
+                                href={article.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 transition-colors break-all font-[family-name:var(--font-geist-mono)]"
+                              >
+                                {article.url} ↗
+                              </a>
+                            </div>
+                          </div>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
+            </div>
+          ) : currentDigest.markdown ? (
+            /* Fallback: markdown view for older digests loaded from DB */
+            <article className="prose prose-stone dark:prose-invert prose-sm max-w-none px-6 py-5 rounded-lg border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900">
+              <ArticleMarkdown markdown={currentDigest.markdown} />
+            </article>
+          ) : null}
         </div>
       )}
 
@@ -174,7 +262,7 @@ export default function DigestPage() {
               <li key={d.id}>
                 <button
                   onClick={() => selectDigest(d)}
-                  className="w-full text-left px-4 py-3 rounded-lg border border-stone-200 hover:bg-stone-100 transition-colors dark:border-stone-800 dark:hover:bg-stone-800"
+                  className="cursor-pointer w-full text-left px-4 py-3 rounded-lg border border-stone-200 hover:bg-stone-100 transition-colors dark:border-stone-800 dark:hover:bg-stone-800"
                 >
                   <p className="text-sm font-medium">
                     {new Date(d.generated_at).toLocaleDateString("en-US", {
@@ -196,4 +284,16 @@ export default function DigestPage() {
       )}
     </div>
   );
+}
+
+/** Lazy-loaded markdown renderer for older digests */
+function ArticleMarkdown({ markdown }) {
+  const [Md, setMd] = useState(null);
+
+  useEffect(() => {
+    import("react-markdown").then((mod) => setMd(() => mod.default));
+  }, []);
+
+  if (!Md) return <p className="text-sm text-stone-400">Loading...</p>;
+  return <Md>{markdown}</Md>;
 }
