@@ -71,7 +71,7 @@ export default function SignupPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full h-10 rounded-lg bg-stone-900 text-stone-50 text-sm font-medium hover:bg-stone-800 transition-colors disabled:opacity-50 dark:bg-stone-100 dark:text-stone-900 dark:hover:bg-stone-200"
+            className="cursor-pointer w-full h-10 rounded-lg bg-stone-900 text-stone-50 text-sm font-medium hover:bg-stone-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed dark:bg-stone-100 dark:text-stone-900 dark:hover:bg-stone-200"
           >
             {loading ? "Creating account..." : "Sign up"}
           </button>

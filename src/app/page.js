@@ -25,13 +25,13 @@ export default async function Home() {
         <div className="flex flex-col gap-3 pt-4">
           <Link
             href="/login"
-            className="inline-flex items-center justify-center h-11 px-6 rounded-lg bg-stone-900 text-stone-50 text-sm font-medium hover:bg-stone-800 transition-colors dark:bg-stone-100 dark:text-stone-900 dark:hover:bg-stone-200"
+            className="cursor-pointer inline-flex items-center justify-center h-11 px-6 rounded-lg bg-stone-900 text-stone-50 text-sm font-medium hover:bg-stone-800 transition-colors dark:bg-stone-100 dark:text-stone-900 dark:hover:bg-stone-200"
           >
             Log in
           </Link>
           <Link
             href="/signup"
-            className="inline-flex items-center justify-center h-11 px-6 rounded-lg border border-stone-300 text-sm font-medium hover:bg-stone-100 transition-colors dark:border-stone-700 dark:hover:bg-stone-900"
+            className="cursor-pointer inline-flex items-center justify-center h-11 px-6 rounded-lg border border-stone-300 text-sm font-medium hover:bg-stone-100 transition-colors dark:border-stone-700 dark:hover:bg-stone-900"
           >
             Create account
           </Link>
