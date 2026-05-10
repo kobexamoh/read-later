@@ -3,12 +3,28 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 const TOPIC_LABELS = [
   "politics",
   "pop_culture",
+  "music",
   "tech",
   "career",
+  "science",
+  "local",
   "long_read",
   "brain_rot",
   "other",
 ];
+
+const TOPIC_DESCRIPTIONS = `
+- politics: government, elections, policy, political opinion, geopolitics
+- pop_culture: movies, TV, celebrities, sports, gaming, memes, social media trends
+- music: bands, artists, albums, gear, interviews with musicians, music industry
+- tech: software, hardware, programming, AI, startups, product launches
+- career: job advice, professional development, workplace, freelancing, entrepreneurship
+- science: research, studies, psychology, biology, physics, innovation, academia
+- local: local news, community profiles, city-specific content, regional stories
+- long_read: in-depth essays, investigations, longform journalism (use alongside another topic)
+- brain_rot: low-value entertainment, doomscrolling fodder, gossip, clickbait
+- other: doesn't clearly fit any of the above
+`.trim();
 
 let genAI = null;
 
@@ -36,13 +52,21 @@ export async function enrichLink(title, url, snippet) {
 1. "description": A concise 1–2 sentence summary of what this page is about. Be factual, not clickbaity.
 2. "topics": An array of one or more topic labels from this list: ${JSON.stringify(TOPIC_LABELS)}
 
+Topic definitions:
+${TOPIC_DESCRIPTIONS}
+
+Rules:
+- Always pick the most specific matching topic(s). Avoid "other" if any topic fits.
+- A link can have multiple topics (e.g. ["politics", "long_read"]).
+- Use "other" ONLY when the content truly doesn't match any defined category.
+
 Page info:
 - Title: ${title || "(unknown)"}
 - URL: ${url}
 - Content snippet: ${snippet || "(not available)"}
 
 Return ONLY valid JSON, no markdown fences, no explanation. Example:
-{"description": "An analysis of...", "topics": ["politics", "tech"]}`;
+{"description": "An analysis of...", "topics": ["politics", "long_read"]}`;
 
   try {
     const result = await model.generateContent(prompt);
@@ -52,9 +76,13 @@ Return ONLY valid JSON, no markdown fences, no explanation. Example:
     const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
     const parsed = JSON.parse(cleaned);
 
+    const filteredTopics = (parsed.topics || []).filter((t) =>
+      TOPIC_LABELS.includes(t)
+    );
+
     return {
       description: parsed.description || "",
-      topics: (parsed.topics || []).filter((t) => TOPIC_LABELS.includes(t)),
+      topics: filteredTopics.length > 0 ? filteredTopics : ["other"],
     };
   } catch (err) {
     console.error("Gemini enrichment failed:", err.message);

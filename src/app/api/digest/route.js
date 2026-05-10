@@ -4,8 +4,11 @@ import { mapInterestsToTopics } from "@/lib/gemini";
 const TOPIC_DISPLAY_NAMES = {
   politics: "Politics",
   pop_culture: "Pop Culture",
+  music: "Music",
   tech: "Tech",
   career: "Career & Work",
+  science: "Science",
+  local: "Local",
   long_read: "Long Reads",
   brain_rot: "Brain Rot",
   other: "Other",
@@ -114,8 +117,11 @@ export async function POST() {
   const topicOrder = [
     "politics",
     "pop_culture",
+    "music",
     "tech",
     "career",
+    "science",
+    "local",
     "long_read",
     "brain_rot",
     "other",
