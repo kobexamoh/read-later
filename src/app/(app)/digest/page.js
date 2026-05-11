@@ -52,6 +52,11 @@ export default function DigestPage() {
           `Enriched ${enrichData.enriched} link${enrichData.enriched === 1 ? "" : "s"}.${enrichData.failed > 0 ? ` ${enrichData.failed} failed.` : ""}`
         );
       }
+
+      // Surface any warnings (e.g. Gemini quota exceeded)
+      if (enrichData.warnings && enrichData.warnings.length > 0) {
+        setError(enrichData.warnings[0]);
+      }
     } catch (err) {
       setError(err.message);
       setEnriching(false);

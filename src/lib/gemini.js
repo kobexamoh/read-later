@@ -86,9 +86,21 @@ Return ONLY valid JSON, no markdown fences, no explanation. Example:
     };
   } catch (err) {
     console.error("Gemini enrichment failed:", err.message);
+
+    // Surface the actual error reason
+    let errorMsg = "Gemini API error";
+    if (err.message?.includes("429") || err.message?.includes("quota")) {
+      errorMsg = "Gemini API quota exceeded — topics defaulted to 'other'. Try again later or swap your API key.";
+    } else if (err.message?.includes("403") || err.message?.includes("API_KEY")) {
+      errorMsg = "Gemini API key is invalid or unauthorized.";
+    } else {
+      errorMsg = `Gemini API error: ${err.message}`;
+    }
+
     return {
       description: "",
       topics: ["other"],
+      error: errorMsg,
     };
   }
 }

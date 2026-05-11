@@ -32,6 +32,7 @@ export async function POST() {
 
   let enrichedCount = 0;
   let failedCount = 0;
+  const errors = [];
 
   for (const link of pendingLinks) {
     try {
@@ -39,19 +40,24 @@ export async function POST() {
       const { title, snippet, content } = await fetchPageContent(link.url);
 
       // Call Gemini for description + topics
-      const { description, topics } = await enrichLink(
+      const enrichResult = await enrichLink(
         title || link.title,
         link.url,
         snippet
       );
+
+      // If Gemini returned an error, track it but still save what we can
+      if (enrichResult.error) {
+        errors.push(enrichResult.error);
+      }
 
       // Update the link record
       await supabase
         .from("links")
         .update({
           title: title || link.title || link.url,
-          description,
-          topics,
+          description: enrichResult.description,
+          topics: enrichResult.topics,
           content: content || null,
           status: "enriched",
         })
@@ -60,6 +66,7 @@ export async function POST() {
       enrichedCount++;
     } catch (err) {
       console.error(`Failed to enrich ${link.url}:`, err.message);
+      errors.push(`${link.url}: ${err.message}`);
 
       await supabase
         .from("links")
@@ -70,10 +77,14 @@ export async function POST() {
     }
   }
 
+  // Deduplicate errors (e.g. same quota message for every link)
+  const uniqueErrors = [...new Set(errors)];
+
   return Response.json({
     enriched: enrichedCount,
     failed: failedCount,
     total: pendingLinks.length,
+    ...(uniqueErrors.length > 0 && { warnings: uniqueErrors }),
   });
 }
 
